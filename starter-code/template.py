@@ -4,6 +4,8 @@ Học viên hoàn thiện các mục TODO để hoàn thành bài lab.
 """
 
 import json
+import os
+from typing import Any, Dict
 from tools import TOOL_DEFINITIONS, TOOL_MAP, get_flight_info, get_weather_forecast
 
 SYSTEM_PROMPT = """Bạn là một ReAct Agent thông minh hỗ trợ khách hàng Vingroup.
@@ -20,9 +22,39 @@ Final Answer: <Câu trả lời hoàn chỉnh cho khách hàng>
 
 class ChatbotBaseline:
     """Baseline LLM Chatbot (Không sử dụng ReAct Loop hay Tools)"""
-    def query(self, user_input: str) -> str:
-        # TODO: Trả về câu trả lời tĩnh hoặc gọi LLM 1 lượt (không dùng tool)
-        return f"[Chatbot Baseline] Trả lời cho: {user_input}"
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+
+    def query(self, user_input: str) -> Dict[str, Any]:
+        if self.api_key:
+            try:
+                import google.generativeai as genai
+
+                genai.configure(api_key=self.api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(
+                    "Bạn là chatbot tư vấn du lịch. Hãy trả lời câu hỏi sau của "
+                    f"khách hàng mà KHÔNG dùng tool hay internet: {user_input}"
+                )
+                return {
+                    "answer": response.text,
+                    "tool_calls": [],
+                    "status": "success",
+                    "mode": "live_api",
+                }
+            except Exception:
+                # Theo slide: dùng câu trả lời mẫu nếu SDK/API không khả dụng.
+                pass
+
+        return {
+            "answer": (
+                "Bạn có thể tìm chuyến bay trên các trang hàng không. "
+                "Về thời tiết, bạn nên tra cứu trên trang dự báo thời tiết."
+            ),
+            "tool_calls": [],
+            "status": "success",
+            "mode": "mock_baseline",
+        }
 
 class ReActAgent:
     """ReAct Agent có sử dụng Thought-Action-Observation Loop"""
